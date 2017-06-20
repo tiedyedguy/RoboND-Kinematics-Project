@@ -21,7 +21,7 @@
     </collision>
   </link>
   <gazebo reference="target_link_1">
-    <material>Gazebo/Green</material>
+    <material>Gazebo/TieDyed</material>
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
   </gazebo>
