@@ -15,6 +15,7 @@ import tf
 from kuka_arm.srv import *
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from geometry_msgs.msg import Pose
+import random
 from mpmath import *
 from sympy import *
 
@@ -33,6 +34,13 @@ def handle_calculate_IK(req):
 
             # Define DH param symbols
 
+            theta1 = theta2 = theta3 = theta4 = theta5 = theta6 = 0
+            theta1 = random.random()
+            theta2 = random.random()
+            theta3 = random.random()
+            theta4 = random.random()
+            theta5 = random.random()
+            theta6 = random.random()
 
             
             # Joint angle symbols
