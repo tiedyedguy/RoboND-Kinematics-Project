@@ -43,6 +43,7 @@ rollsym = symbols('roll')
 pitchsym = symbols('pitch')
 yawsym = symbols('yaw')
 
+
 #Setting up global DH Table
 s = {alpha0:      0, a0:       0, d1:  0.75,
      alpha1:  -pi/2, a1:    0.35, d2:     0, q2: q2-pi/2,
@@ -166,18 +167,23 @@ def handle_calculate_IK(req):
                 [0.000000078978773, 0.0000025701333,
                     -0.00000008005657, 0.999999999997])
 
-            Ree = (R_x * R_y * R_z* R_corr).evalf(subs={rollsym: roll, pitchsym: pitch, yawsym: yaw })
+            pitch =0
+            roll = 0
+            yaw = 0
             
+            Ree = ((T0_1[0:3,0:3] * T1_2[0:3,0:3] * T2_3[0:3,0:3])**-1 * (R_x * R_y * R_z)).evalf(subs={q1:0, q2:0, q3:0, rollsym: roll, pitchsym: pitch, yawsym: yaw })
             
+            print((d6 + d7).subs(s))
+            print(Ree.col(2).subs(s))
             # if that's where the EE is, where is the wrist?
             wx = (px - (d6 + d7) * Ree[0,2]).subs(s)
             wy = (py - (d6 + d7) * Ree[1,2]).subs(s)
             wz = (pz - (d6 + d7) * Ree[2,2]).subs(s)
             
-
-            wx = 1.607
-            wy = 0
-            wz = 1.945
+            
+            #wx = 1.607
+            #wy = 0
+            #wz = 1.945
 
             # Calculate joint angles using Geometric IK method
             print("EE at: ",px,py,pz)
@@ -185,7 +191,7 @@ def handle_calculate_IK(req):
             print("Wrist at: ",wx,wy,wz)
             theta1 = atan2(wy, wx)
             
-
+        
             j2position = T0_1 * T1_2 * Matrix([0,0,0,1])
             j3position = T0_1 * T1_2 * T2_3 * Matrix([0,0,0,1])
             
@@ -197,7 +203,7 @@ def handle_calculate_IK(req):
             
             firstside = a2.subs(s)
             secondside = d4.subs(s)
-            #firstside = 1.25,Dee
+            #firstside = 1.25
             #secondside = 0.96
             thirdside = math.sqrt((wx - j2x)**2 + (wy - j2y)**2 + (wz - j2z)**2)
             print("Sides:", firstside, secondside, thirdside)
@@ -209,8 +215,8 @@ def handle_calculate_IK(req):
             Bee = atan2(wz, wx)
 
             print("Bee", Bee)
-            Aye = atan2(secondside*sin(theta3),firstside + secondside * cos(theta3))
-            theta2 = Bee - Aye - math.pi / 2
+            Aye = atan2(firstside + secondside * cos(theta3),secondside*sin(theta3))
+            theta2 = Bee - Aye
             print ("Theta3", theta3)
             print("Aye:",Aye)
             print("Cos(Theta3)",cos(theta3))
@@ -223,8 +229,8 @@ def handle_calculate_IK(req):
             #theta6 = yaw
 
             # In the next line replace theta1,the
-            joint_trajectory_point.positions = [theta1, theta2, theta3, theta4, theta5, theta6]
-            print (joint_traudacaxlkjfas;dlkfja;sldkjf;alskdjf;alksjdf;alskjdfry_point.positions)
+            joint_trajectory_point.positions = [theta1, math.degrees(theta2), math.degrees(theta3), theta4, theta5, theta6]
+            print (joint_trajectory_point.positions)
             joint_trajectory_list.append(joint_trajectory_point)
             #calculate_error(joint_trajectory_point.positions, req.poses[x].position)
 
