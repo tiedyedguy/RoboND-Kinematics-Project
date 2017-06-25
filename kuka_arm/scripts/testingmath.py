@@ -32,6 +32,7 @@ T5_6 = 0
 T6_7 = 0
 Tcorr = 0
 T_total = 0
+R_corr = 0
 
 #Setting up global Parameters
 q1, q2, q3, q4, q5, q6, q7 = symbols('q1:8')
@@ -67,7 +68,7 @@ R_x = Matrix([[  1,            0,             0],
 
 
 def setupvariables():
-    global T0_1, T1_2, T2_3, T3_4, T4_5, T5_6, T6_7, T_total
+    global T0_1, T1_2, T2_3, T3_4, T4_5, T5_6, T6_7, T_total, R_corr
     print("Starting to set up all our variables")
     T0_1 = Matrix([[             cos(q1),            -sin(q1),            0,              a0],
                [ sin(q1)*cos(alpha0), cos(q1)*cos(alpha0), -sin(alpha0), -sin(alpha0)*d1],
@@ -151,7 +152,7 @@ def handle_calculate_IK(req):
             joint_trajectory_point = JointTrajectoryPoint()
 
             theta1 = theta2 = theta3 = theta4 = theta5 = theta6 = 0
-            theta3 = -1.55
+            
 
             
             # Extract end-effector position and orientation from request
@@ -165,7 +166,7 @@ def handle_calculate_IK(req):
                 [0.000000078978773, 0.0000025701333,
                     -0.00000008005657, 0.999999999997])
 
-            Ree = (R_x * R_y * R_z).evalf(subs={rollsym: roll, pitchsym: pitch, yawsym: yaw })
+            Ree = (R_x * R_y * R_z* R_corr).evalf(subs={rollsym: roll, pitchsym: pitch, yawsym: yaw })
             
             
             # if that's where the EE is, where is the wrist?
@@ -173,6 +174,11 @@ def handle_calculate_IK(req):
             wy = (py - (d6 + d7) * Ree[1,2]).subs(s)
             wz = (pz - (d6 + d7) * Ree[2,2]).subs(s)
             
+
+            wx = 1.607
+            wy = 0
+            wz = 1.945
+
             # Calculate joint angles using Geometric IK method
             print("EE at: ",px,py,pz)
             
@@ -189,23 +195,25 @@ def handle_calculate_IK(req):
             j2z = j2position[2].evalf(subs={q1:theta1})
             print("Join2At ",j2x,j2y,j2z)
             
-            #firstside = a2.subs(s)
-            #secondside = d4.subs(s)
-            firstside = 1.25
-            secondside = 0.96
+            firstside = a2.subs(s)
+            secondside = d4.subs(s)
+            #firstside = 1.25,Dee
+            #secondside = 0.96
             thirdside = math.sqrt((wx - j2x)**2 + (wy - j2y)**2 + (wz - j2z)**2)
             print("Sides:", firstside, secondside, thirdside)
             
+            Dee = (wx**2 + wz**2 - firstside**2 - secondside**2) / (2 * firstside * secondside)
+            print("Dee:", Dee)
+            theta3 = atan2(-1 * sqrt(1 - Dee**2),Dee)
+            print("OtherSide:", -1 * sqrt(1 - Dee**2))
+            Bee = atan2(wz, wx)
 
-            theta2 = (62.206 - math.degrees(acos((firstside**2 + thirdside**2 - secondside**2) / (2 * firstside * thirdside)) + cos((wx - j2x)/thirdside)))
-            
-            j3x = j3position[0].evalf(subs={q1:theta1, q2:theta2})
-            j3y = j3position[1].evalf(subs={q1:theta1, q2:theta2})
-            j3z = j3position[2].evalf(subs={q1:theta1, q2:theta2})
-            
-            theta3 = (155.746 - math.degrees(acos((firstside**2 - thirdside**2 + secondside**2) / (2 * firstside * secondside)) + cos((wx - j3x)/thirdside)))
-
-
+            print("Bee", Bee)
+            Aye = atan2(secondside*sin(theta3),firstside + secondside * cos(theta3))
+            theta2 = Bee - Aye - math.pi / 2
+            print ("Theta3", theta3)
+            print("Aye:",Aye)
+            print("Cos(Theta3)",cos(theta3))
 
             # Populate response for the IK request
 
@@ -216,7 +224,7 @@ def handle_calculate_IK(req):
 
             # In the next line replace theta1,the
             joint_trajectory_point.positions = [theta1, theta2, theta3, theta4, theta5, theta6]
-            print (joint_trajectory_point.positions)
+            print (joint_traudacaxlkjfas;dlkfja;sldkjf;alskdjf;alksjdf;alskjdfry_point.positions)
             joint_trajectory_list.append(joint_trajectory_point)
             #calculate_error(joint_trajectory_point.positions, req.poses[x].position)
 
