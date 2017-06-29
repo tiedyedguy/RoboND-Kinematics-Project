@@ -53,8 +53,8 @@ s = {alpha0:      0, a0:       0, d1:  0.75,
      alpha5:  -pi/2, a5:       0, d6:     0,
      alpha6:      0, a6:       0, d7: 0.303, q7: 0}
 
-R_z = Matrix([[ cos(yawsym), -sin(yawsym), 0],
-              [ sin(yawsym),  cos(yawsym), 0],
+R_z = Matrix([[ cos(rollsym), -sin(rollsym), 0],
+              [ sin(rollsym),  cos(rollsym), 0],
               [          0,           0,   1]])
 
 R_y = Matrix([[  cos(pitchsym), 0, sin(pitchsym)],
@@ -63,8 +63,9 @@ R_y = Matrix([[  cos(pitchsym), 0, sin(pitchsym)],
               
 
 R_x = Matrix([[  1,            0,             0],
-              [  0, cos(rollsym), -sin(rollsym)],
-              [  0, sin(rollsym),  cos(rollsym)]])
+              [  0, cos(yawsym), -sin(yawsym)],
+              [  0, sin(yawsym),  cos(yawsym)]])
+
 
 
 
@@ -154,86 +155,145 @@ def handle_calculate_IK(req):
 
             theta1 = theta2 = theta3 = theta4 = theta5 = theta6 = 0
             
-
-            
+            R_zz = Matrix([[ cos(np.pi), -sin(np.pi), 0,0],
+              [ sin(np.pi),  cos(np.pi), 0,0],
+              [          0,           0, 1,0],
+              [          0,           0, 0,1]])
+            R_yy = Matrix([[  cos(-np.pi/2), 0, sin(-np.pi/2),0],
+              [              0, 1,             0,0],
+              [ -sin(-np.pi/2), 0, cos(-np.pi/2),0],
+              [              0, 0,             0,1]])
+            R_zzz = R_zz[0:3,0:3]
+            R_yyy = R_yy[0:3,0:3]
+            R_corr2 = R_yyy * R_zzz
             # Extract end-effector position and orientation from request
 	        # px,py,pz = end-effector position
 	        # roll, pitch, yaw = end-effector orientation
-            px = 2.04300328197
-            py = -.00327110885763
-            pz = 1.94599163997
+            px = 2.1529
+            py = 0
+            pz = 1.9465
+            qx = 0
+            qy = 0
+            qz = 0
+            qw = 1
+            #px = .83568
+            #py = -1.908
+            #pz = 3.2037
+            #qx = 0.74842
+            #qy = -0.532484
+            #qz = 0.245889
+            #qw = 0.309624
 
             (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(
-                [0.000000078978773, 0.0000025701333,
-                    -0.00000008005657, 0.999999999997])
+                [qx, qy,
+                    qz, qw])
+           
+            Ree = (R_x * R_y * R_z).evalf(subs={rollsym:roll,pitchsym:pitch,yawsym:yaw})
+            
+            # if that's where the EE is, where is the wrist?  We find it out from the rotation matrix 
+            wx = (px - (d6 + d7) * Ree[0,0]).subs(s)
+            wy = (py - (d6 + d7) * Ree[1,0]).subs(s)
+            wz = (pz - (d6 + d7) * Ree[2,0]).subs(s)
 
-            pitch =0
-            roll = 0
-            yaw = 0
-            
-            Ree = ((T0_1[0:3,0:3] * T1_2[0:3,0:3] * T2_3[0:3,0:3])**-1 * (R_x * R_y * R_z)).evalf(subs={q1:0, q2:0, q3:0, rollsym: roll, pitchsym: pitch, yawsym: yaw })
-            
-            print((d6 + d7).subs(s))
-            print(Ree.col(2).subs(s))
-            # if that's where the EE is, where is the wrist?
-            wx = (px - (d6 + d7) * Ree[0,2]).subs(s)
-            wy = (py - (d6 + d7) * Ree[1,2]).subs(s)
-            wz = (pz - (d6 + d7) * Ree[2,2]).subs(s)
             
             
-            #wx = 1.607
-            #wy = 0
-            #wz = 1.945
-
-            # Calculate joint angles using Geometric IK method
-            print("EE at: ",px,py,pz)
             
-            print("Wrist at: ",wx,wy,wz)
+            # The easist theta of them all, turn the base to face the wrist.  Ripped from the lessons
             theta1 = atan2(wy, wx)
             
-        
-            j2position = T0_1 * T1_2 * Matrix([0,0,0,1])
-            j3position = T0_1 * T1_2 * T2_3 * Matrix([0,0,0,1])
+            # Ok, this one I had help on.  There is a slight arm on this thing of 0.054 and didn't
+            # know how to account for it.  Someone gave me this clue.
+            extraangle = atan2(wz-1.94645, wx)
+            wx = wx-0.054*sin(extraangle)
+            wz = wz+0.054*cos(extraangle)
             
-            
-            j2x = j2position[0].evalf(subs={q1:theta1})
-            j2y = j2position[1].evalf(subs={q1:theta1})
-            j2z = j2position[2].evalf(subs={q1:theta1})
-            print("Join2At ",j2x,j2y,j2z)
-            
-            firstside = a2.subs(s)
-            secondside = d4.subs(s)
-            #firstside = 1.25
-            #secondside = 0.96
-            thirdside = math.sqrt((wx - j2x)**2 + (wy - j2y)**2 + (wz - j2z)**2)
-            print("Sides:", firstside, secondside, thirdside)
-            
-            Dee = (wx**2 + wz**2 - firstside**2 - secondside**2) / (2 * firstside * secondside)
-            print("Dee:", Dee)
-            theta3 = atan2(-1 * sqrt(1 - Dee**2),Dee)
-            print("OtherSide:", -1 * sqrt(1 - Dee**2))
-            Bee = atan2(wz, wx)
 
-            print("Bee", Bee)
-            Aye = atan2(firstside + secondside * cos(theta3),secondside*sin(theta3))
-            theta2 = Bee - Aye
-            print ("Theta3", theta3)
-            print("Aye:",Aye)
-            print("Cos(Theta3)",cos(theta3))
+            # Finding the distance from the origin to the newly slightly moved wrist center
+            wxdist = sqrt(wy*wy+wx*wx)
 
-            # Populate response for the IK request
+            # The lenghs of the segments we are usuing for theta2 & 3, they are in the DH table
+            l1 = s[a2]
+            l2 = s[d4]
+
+            # Moving the second joint to the origin to make the math cleaner later.
+            wxdist = wxdist - s[a1]
+            wzdist = wz - s[d1]
+
+            # So, the first angle to find now is theta3.
+            # I had no idea how to do this, was told cosine law
+            # That led me to Mark Spong's text book
+            # Which lead me to these formulas.
+            D=(wxdist*wxdist + wzdist*wzdist - l1*l1-l2*l2)/(2*l1*l2)
+            
+            # Sometimes D goes above 1 which adds in imaginary numbers, no clue how/why, so I stop that.
+            if (D>1):
+                D=1
+            
+            # Thanks Mr. Spong
+            theta3 = atan2(-sqrt(1-D*D),D)
+            
+            # From the same method as above, you can now get to theta 2
+            # I pulled this formula straight from the book and from help from a classmate
+            # I am so lost at why it works.
+            S1=((l1+l2*cos(theta3))*wzdist-l2*sin(theta3)*wxdist) / (wxdist*wxdist + wzdist*wzdist)
+            C1=((l1+l2*cos(theta3))*wxdist+l2*sin(theta3)*wzdist) / (wxdist*wxdist + wzdist*wzdist)
+            theta2=atan2(S1,C1)
+            
+            # Theta3 needs to be translated by 90 degrees
+            theta3 = -1*(theta3+pi/2)
+
+
+            # So does theta2
+            theta2 = pi/2-theta2
+
+            # How did I get those translation values? I ran it without them in the 0 config, saw their values
+            # and used that as the translation
+
+            # Now that we have the first three angles, time to hit the third three!
+            
+            # R0_3 is the rotation matrix up the wrist, we can now get this because we have theta1-3
+            R0_3 = (T0_1 * T1_2 * T2_3).evalf(subs={q1:theta1,q2:theta2,q3:theta3})[0:3,0:3]
+            
+            # We know up to the wrist, and we know after the wrist, this gives us the last three rotations
+            # in a rotation matrix
+            R3_6 = (R0_3)**-1 * Ree[0:3,0:3]
+
+            # Thanks classmate who listed this formula for taking the rotation to euler!  Saved me a lot of trig.
+            (theta4, theta5, theta6) = tf.transformations.euler_from_matrix(np.array(R3_6[0:3,0:3]).astype(np.float64),"ryzx")
+            
+            theta4 = theta4 
+            
+            #Theta 5 needed a translate, figured this out by the 0 case
+            theta5 = (theta5 - np.pi/2)
+            
+            # Sometimes theta 5 likes to go crazy and bump into itself.  This stops that.
+            if (theta5 > 1.7):
+                theta5 = 1.7
+            if (theta5 < -1.7):
+                theta5 = -1.7
+            #Theta 6 needed a translate, figured this out by the 0 case
+            theta6 = theta6 - np.pi/2
 
             
-            #theta4 = roll
-            #theta5 = pitch
-            #theta6 = yaw
 
+
+
+            #theta4 = atan2(sqrt(1-R3_6[2,2]**2),R3_6[2,2])
+            #theta5 = atan2(R3_6[1,2],R3_6[0,2]) + pi
+            #theta6 = atan2(R3_6[2,1],R3_6[2,0])
+
+            
             # In the next line replace theta1,the
-            joint_trajectory_point.positions = [theta1, math.degrees(theta2), math.degrees(theta3), theta4, theta5, theta6]
-            print (joint_trajectory_point.positions)
+            joint_trajectory_point.positions = [theta1, theta2, theta3, theta4, theta5, theta6]
+            print(joint_trajectory_point.positions)
             joint_trajectory_list.append(joint_trajectory_point)
             #calculate_error(joint_trajectory_point.positions, req.poses[x].position)
-
+            
+            T_total_eval = T_total.evalf(subs={q1:theta1,q2:theta2,q3:theta3,q4:theta4,q5:theta5,q6:theta6})
+            T_total_eval2 = T_total.evalf(subs={q1:0,q2:0,q3:0,q4:0,q5:0,q6:0})
+            print(T_total_eval[0:3,0:3])
+            print(T_total_eval2[0:3,0:3])
+            print(Ree[0:3,0:3])
         #rospy.loginfo("length of Joint Trajectory List: %s" % len(joint_trajectory_list))
         return CalculateIKResponse(joint_trajectory_list)
 
