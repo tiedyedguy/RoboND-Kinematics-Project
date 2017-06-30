@@ -278,7 +278,7 @@ def handle_calculate_IK(req):
             joint_trajectory_list.append(joint_trajectory_point)
             #calculate_error(joint_trajectory_point.positions, req.poses[x].position)
             
-            T_total_eval = T_total.evalf(subs={q1:theta1,q2:theta2-pi/2,q3:theta3,q4:theta4,q5:theta5,q6:theta6})
+            T_total_eval = T_total.evalf(subs={q1:theta1,q2:theta2,q3:theta3,q4:theta4,q5:theta5,q6:theta6})
             T_total_eval2 = T_total.evalf(subs={q1:0,q2:0,q3:0,q4:0,q5:0,q6:0})
             print(T_total_eval[0:3,0:3])
             print(T_total_eval2[0:3,0:3])
