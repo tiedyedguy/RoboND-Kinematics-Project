@@ -34,6 +34,7 @@ Tcorr = 0
 T_total = 0
 R_corr = 0
 Ree = 0
+Total_IK_Solves = 0
 
 #Setting up global Parameters
 q1, q2, q3, q4, q5, q6, q7 = symbols('q1:8')
@@ -54,8 +55,8 @@ s = {alpha0:      0, a0:       0, d1:  0.75,
      alpha6:      0, a6:       0, d7: 0.303, q7: 0}
 
 #Setting up tables for calculating R0_6 or Ree as I call it
-R_z = Matrix([[ cos(rollsym), -sin(rollsym), 0],
-              [ sin(rollsym),  cos(rollsym), 0],
+R_z = Matrix([[ cos(yawsym), -sin(yawsym), 0],
+              [ sin(yawsym),  cos(yawsym), 0],
               [          0,           0,   1]])
 
 R_y = Matrix([[  cos(pitchsym), 0, sin(pitchsym)],
@@ -64,11 +65,12 @@ R_y = Matrix([[  cos(pitchsym), 0, sin(pitchsym)],
               
 
 R_x = Matrix([[  1,            0,             0],
-              [  0, cos(yawsym), -sin(yawsym)],
-              [  0, sin(yawsym),  cos(yawsym)]])
+              [  0, cos(rollsym), -sin(rollsym)],
+              [  0, sin(rollsym),  cos(rollsym)]])
 
 #Run once function to do some dirty dirty math before we start collecting EE poses
 def setupvariables():
+    print("Ok, now I have a bunch of calculations to run that would take you years, for me... ")
     global T0_1, T1_2, T2_3, T3_4, T4_5, T5_6, T6_7, T_total, Ree, R_x, R_y, R_z,R_corr
 
     #The forward kinematic transforms.  Ripped right from the lectures.
@@ -115,7 +117,7 @@ def setupvariables():
     T6_7 = T6_7.subs(s)
     
     #The link from the begginging all the way to the end
-    T0_7 = T0_1 * T1_2 * T2_3 * T3_4 * T4_5 * T5_6 * T6_7
+    T0_7 = ((((((T0_1 * T1_2) * T2_3) * T3_4) * T4_5) * T5_6) * T6_7)
     
     #How to fix for gribber, ripped right from video
     R_zz = Matrix([[ cos(np.pi), -sin(np.pi), 0,0],
@@ -130,19 +132,60 @@ def setupvariables():
 
 
     #The final total homogenous transformation in all its glory.
-    T_total = T0_7 * R_corr
-    
+    T_total = (T0_7 * R_corr)
+    print("BOOM, I'm all done, what did you do in that time? I bet not much.")
+
+
+# My function that display funny messages.  I'm not going to comment in it, cause it is awesome.    
+def personality(event,other):
+     if (event == "start"):
+         other = str(other)
+         messages = ['Oh man, you just gave me ' + other + ' things to calculate! Thanks!',
+                     'Looks like daddy isn\'t comming home tonight, with ' + other + ' many poses to do.',
+                     'So, ' + other + ' poses? Am I going to pick up or drop off? What, I have no eyes? WHY DO I HAVE NO EYES?',
+                     'Whistle while you perform ' + other + ' calculations. REPEAT LINE']
+         print(random.choice(messages))
+     if (event == "end"):
+         other = str(other)
+         sofar = str(Total_IK_Solves+1)
+         messages = [
+             'There you go, all ' + other + ' of them wrapped up in a bow.  That\'s chore #' + sofar + ' done!',
+             'How many things are you going to ask me to do? That was ' + other + ' calcs in item #' + sofar + '!',
+             'THANK YOU FOR USING MY SERVICE: ORDER #' + sofar + '/' + other + ' IT WAS MY PLEASURE',
+             'While doing all those ' + other + ' calcs for round ' + sofar + ' I realized that ROS is a lie.',
+             'Oh ' + other + ' poses on the wall, ' + other + ' poses. Take one down, pass it around, DIVIDE BY 0 ERROR'
+         ]
+         print(random.choice(messages))
+     if (event == "gobeer"):
+         print('All of this work made me thirsty, time for a cool $brand_name beer!')
+
+
+# This sends the trajectory at the end to the refridgerator, can't reach it, but it tries.
+def send_beer_IK(req):
+    personality("gobeer",0)
+    joint_trajectory_list = []
+    joint_trajectory_point = JointTrajectoryPoint()
+    ts = [-pi/2,1.45,-1.48,0,0,0]
+    joint_trajectory_point.positions = ts
+    joint_trajectory_list.append(joint_trajectory_point)  
+    return (joint_trajectory_list)
+
 #The Ros srv function.
 def handle_calculate_IK(req):
-    global Ree,R_corr
-    rospy.loginfo("Received %s eef-poses from the plan" % len(req.poses))
+    global Ree,R_corr, Total_IK_Solves, saylastmessage
+    
+    # If we are done, go to the beer trajectory.
+    if (Total_IK_Solves == 20):
+        return CalculateIKResponse(send_beer_IK(req))
+    
     
     #Make sure we got poses. Sometimes we do not get poses and it angers me because this sends raises an exception
     if len(req.poses) < 1:
         print "No valid poses received"
         return -1 #It shouldn't be this, but I don't know what it should be.
     else:
-
+        personality("start",len(req.poses))
+        errors = 0
         # Initialize service response
         joint_trajectory_list = []
         
@@ -234,32 +277,25 @@ def handle_calculate_IK(req):
             
             # We know up to the wrist, and we know after the wrist, this gives us the last three rotations
             # in a rotation matrix
-            R3_6 = (R0_3)**-1 * Ree[0:3,0:3]
+            R3_6 = R0_3.transpose()[0:3,0:3] * Ree[0:3,0:3]
 
-            # Thanks classmate who listed this formula for taking the rotation to euler!  Saved me a lot of trig.
-            (theta4, theta5, theta6) = tf.transformations.euler_from_matrix(np.array(R3_6[0:3,0:3]).astype(np.float64),"ryzx")
-            
-            theta4 = theta4 
-            
-            #Theta 5 needed a translate, figured this out by the 0 case
-            theta5 = (theta5 - np.pi/2)
-            
-            # Sometimes theta 5 likes to go crazy and bump into itself.  This stops that.
-            if (theta5 > 1.7):
-                theta5 = 1.7
-            if (theta5 < -1.7):
-                theta5 = -1.7
-            #Theta 6 needed a translate, figured this out by the 0 case
-            theta6 = theta6 - np.pi/2
+            # How did I know I had to rotate these and then use ryzy?  Easy, trial and error for hours.
+            # and more hours.  Seriously, this was easier than learning trig.
+            R3_6 = R3_6 * R_z.evalf(subs={yawsym:-pi/2})[0:3,0:3] * R_y.evalf(subs={pitchsym:-pi/2})[0:3,0:3]
+            first, second, third = tf.transformations.euler_from_matrix(np.array(R3_6).astype(np.float64), "ryzy")
 
+            theta4 = first
+            theta5 = np.clip(second,-2,2)  #Special note, this little guy likes to cause collisions, but not with this!
+            theta6 = third
             
-
-           
+        
             # Adding our joints to the list to send back.
             joint_trajectory_point.positions = [theta1, theta2, theta3, theta4, theta5, theta6]
             joint_trajectory_list.append(joint_trajectory_point)
             
-        rospy.loginfo("length of Joint Trajectory List: %s" % len(joint_trajectory_list))
+        
+        personality("end",len(req.poses))
+        Total_IK_Solves += 1
         return CalculateIKResponse(joint_trajectory_list)
 
 
@@ -268,7 +304,7 @@ def IK_server():
     setupvariables()
     rospy.init_node('IK_server')
     s = rospy.Service('calculate_ik', CalculateIK, handle_calculate_IK)
-    print "Ready to receive an IK request"
+    print "The Lines are Open! Ready to take the first caller!"
     rospy.spin()
 
 if __name__ == "__main__":

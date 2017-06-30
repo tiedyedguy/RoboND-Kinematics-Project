@@ -44,6 +44,7 @@ pitchsym = symbols('pitch')
 yawsym = symbols('yaw')
 
 
+
 #Setting up global DH Table
 s = {alpha0:      0, a0:       0, d1:  0.75,
      alpha1:  -pi/2, a1:    0.35, d2:     0, q2: q2-pi/2,
@@ -53,8 +54,8 @@ s = {alpha0:      0, a0:       0, d1:  0.75,
      alpha5:  -pi/2, a5:       0, d6:     0,
      alpha6:      0, a6:       0, d7: 0.303, q7: 0}
 
-R_z = Matrix([[ cos(rollsym), -sin(rollsym), 0],
-              [ sin(rollsym),  cos(rollsym), 0],
+R_z = Matrix([[ cos(yawsym), -sin(yawsym), 0],
+              [ sin(yawsym),  cos(yawsym), 0],
               [          0,           0,   1]])
 
 R_y = Matrix([[  cos(pitchsym), 0, sin(pitchsym)],
@@ -63,8 +64,8 @@ R_y = Matrix([[  cos(pitchsym), 0, sin(pitchsym)],
               
 
 R_x = Matrix([[  1,            0,             0],
-              [  0, cos(yawsym), -sin(yawsym)],
-              [  0, sin(yawsym),  cos(yawsym)]])
+              [  0, cos(rollsym), -sin(rollsym)],
+              [  0, sin(rollsym),  cos(rollsym)]])
 
 
 
@@ -155,17 +156,15 @@ def handle_calculate_IK(req):
 
             theta1 = theta2 = theta3 = theta4 = theta5 = theta6 = 0
             
-            R_zz = Matrix([[ cos(np.pi), -sin(np.pi), 0,0],
-              [ sin(np.pi),  cos(np.pi), 0,0],
+            R_zz = Matrix([[ cos(yawsym), -sin(yawsym), 0,0],
+              [ sin(yawsym),  cos(yawsym), 0,0],
               [          0,           0, 1,0],
               [          0,           0, 0,1]])
-            R_yy = Matrix([[  cos(-np.pi/2), 0, sin(-np.pi/2),0],
+            R_yy = Matrix([[  cos(pitchsym), 0, sin(pitchsym),0],
               [              0, 1,             0,0],
-              [ -sin(-np.pi/2), 0, cos(-np.pi/2),0],
+              [ -sin(pitchsym), 0, cos(pitchsym),0],
               [              0, 0,             0,1]])
-            R_zzz = R_zz[0:3,0:3]
-            R_yyy = R_yy[0:3,0:3]
-            R_corr2 = R_yyy * R_zzz
+            
             # Extract end-effector position and orientation from request
 	        # px,py,pz = end-effector position
 	        # roll, pitch, yaw = end-effector orientation
@@ -249,31 +248,21 @@ def handle_calculate_IK(req):
             # How did I get those translation values? I ran it without them in the 0 config, saw their values
             # and used that as the translation
 
-            # Now that we have the first three angles, time to hit the third three!
-            
-            # R0_3 is the rotation matrix up the wrist, we can now get this because we have theta1-3
             R0_3 = (T0_1 * T1_2 * T2_3).evalf(subs={q1:theta1,q2:theta2,q3:theta3})[0:3,0:3]
             
             # We know up to the wrist, and we know after the wrist, this gives us the last three rotations
             # in a rotation matrix
-            R3_6 = (R0_3)**-1 * Ree[0:3,0:3]
+            R3_6 = R0_3.transpose()[0:3,0:3] * Ree[0:3,0:3]
 
-            # Thanks classmate who listed this formula for taking the rotation to euler!  Saved me a lot of trig.
-            (theta4, theta5, theta6) = tf.transformations.euler_from_matrix(np.array(R3_6[0:3,0:3]).astype(np.float64),"ryzx")
-            
-            theta4 = theta4 
-            
-            #Theta 5 needed a translate, figured this out by the 0 case
-            theta5 = (theta5 - np.pi/2)
-            
-            # Sometimes theta 5 likes to go crazy and bump into itself.  This stops that.
-            if (theta5 > 1.7):
-                theta5 = 1.7
-            if (theta5 < -1.7):
-                theta5 = -1.7
-            #Theta 6 needed a translate, figured this out by the 0 case
-            theta6 = theta6 - np.pi/2
+    
+            # How did I know I had to rotate these and then use ryzy?  Easy, trial and error for hours.
+            # and more hours.  Seriously, this was easier than learning trig.
+            R3_6 = R3_6 * R_z.evalf(subs={yawsym:-pi/2})[0:3,0:3] * R_y.evalf(subs={pitchsym:-pi/2})[0:3,0:3]
+            first, second, third = tf.transformations.euler_from_matrix(np.array(R3_6).astype(np.float64), "ryzy")
 
+            theta4 = first
+            theta5 = np.clip(second,-2,2)  #Special note, this little guy likes to cause collisions, but not with this!
+            theta6 = third
             
 
 
@@ -289,7 +278,7 @@ def handle_calculate_IK(req):
             joint_trajectory_list.append(joint_trajectory_point)
             #calculate_error(joint_trajectory_point.positions, req.poses[x].position)
             
-            T_total_eval = T_total.evalf(subs={q1:theta1,q2:theta2,q3:theta3,q4:theta4,q5:theta5,q6:theta6})
+            T_total_eval = T_total.evalf(subs={q1:theta1,q2:theta2-pi/2,q3:theta3,q4:theta4,q5:theta5,q6:theta6})
             T_total_eval2 = T_total.evalf(subs={q1:0,q2:0,q3:0,q4:0,q5:0,q6:0})
             print(T_total_eval[0:3,0:3])
             print(T_total_eval2[0:3,0:3])
