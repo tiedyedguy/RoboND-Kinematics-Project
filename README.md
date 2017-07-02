@@ -35,7 +35,7 @@ PI/2|  0|   0|Q6
 
 So the picture that represents this is:
 
-![Ain't it pretty!][image_4] 
+![Ain't it pretty!][image4] 
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
 
