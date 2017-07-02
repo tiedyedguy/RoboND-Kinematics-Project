@@ -4,6 +4,7 @@
 [image1]: ./misc_images/misc1.png
 [image2]: ./misc_images/misc2.png
 [image3]: ./misc_images/misc3.png
+[image4]: ./misc_images/DHDiagram.PNG
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/972/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -32,8 +33,9 @@ PI/2| 0|0|Q5
 PI/2|  0|   0|Q6
 0|   0| 0.303|0
 
+So the picture that represents this is:
 
-
+![Ain't it pretty!][image_4] 
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
 
