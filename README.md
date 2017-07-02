@@ -47,7 +47,7 @@ To get the rotational, I got the Roll, Pitch, Yaw from the TF library, then crea
 
 This part took me a while to understand how that works.  When I finally figured it out, I made this video to help my classmates:
 
-
+[![How it works](http://img.youtube.com/vi/iDEIZv8zL9A/0.jpg)](http://www.youtube.com/watch?v=iDEIZv8zL9A "Finding the Wrist - TieDyedGuy")
 
 
 ### Project Implementation
@@ -62,20 +62,20 @@ First, I like to lead with results:
 
 So, let's talk about the main problems:  Find the wrist, find the first three angles, find the last three angles.
 
-#####Finding the wrist: 
+####Finding the wrist: 
 
 I would say that 80% of my answer was figured out based on what others were talking about.  The last 20% was random trial and error.  Everytime you think you have it, the numbers are off just slightly enough that you are left sad and confused.  Luckily, the lecture gets you somewhat there and then it isn't bad when you finally get that answer.
 
-#####Finding the first three angles:
+####Finding the first three angles:
 
 The first angle is so simple it is laughable.  Got that one right away.
 
 The second two are a nightmare for a trig hater.  There is no brute forcing here.  I have about 15 pages of notes in front of me trying to figure out what is going on.  Everyone says "Law of cosines" and every google topic on RRR says to use it also.  I tried so many ways that I found, and none seem to work.  The last method that finally got me the answers was from a clue someone posted to the group.  Apparently my big problem was the 0.054 drop of the arm between 3 and 4.  Once they helped me with the trig, I was set.
 
-#####Finding the first three angles:
+####Finding the first three angles:
 
 No way around it, this one you know your target, it is just brute force.  There is the TF.tranforms.euler_from_matrix() function that takes in the rotation matrix and what kind of axies you want back.  I set up a giant for loop through all the combinations to find the one that worked.  There is probably a trig way of solving it, but, that ain't me.
 
-#####Overall:
+####Overall:
 
 This project was a challenge to me because of the amount of trig needed.  I feel as though I should be able to do the trig and will be refreshing myself more and more as time goes on.  I am glad this project is done.
