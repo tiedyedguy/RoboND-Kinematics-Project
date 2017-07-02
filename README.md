@@ -22,15 +22,18 @@ So, when I started, I tried to write up some DH parameters and well, I failed.  
 
 Anyway, here they are!
 
-Here's | A | Snappy | Table
+Alpha | A | D | Theta
 --- | --- | --- | ---
-1 | `highlight` | **bold** | 7.41
-2 | a | b | c
-3 | *italic* | text | 403
-4 | 2 | 3 | abcd
+0| 0| 0.75 | Q1
+\pi/2| 0.35| 0| Q2- \pi/2
+0| 1.25|0|Q3
+-\pi/2|-0.054| 1.50|Q4
+\pi/2| 0|0|Q5
+\pi/2|  0|   0|Q6
+0|   0| 0.303|0
 
 
-![alt text][image1]
+
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
 
