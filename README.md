@@ -5,6 +5,8 @@
 [image2]: ./misc_images/misc2.png
 [image3]: ./misc_images/misc3.png
 [image4]: ./misc_images/DHDiagram.PNG
+[image5]: ./misc_images/theta1.PNG
+[image6]: ./misc_images/spong1.PNG
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/972/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -192,6 +194,88 @@ Now that we have our wrist, we can decouple and figure out the Inverse Position 
 
 ##### The Inverse Position Kinematics: Theta 1 2 3
 
+Finding theta1 or the rotation around the base was easy.  There was an example given in the lecture for a RRP manipulator, and the theta1 is the same solve:
+
+![Theta1 solve!][image5]
+
+Theta 2 and 3  are impossibly harder.  The first clue I found was from a text book called "Robot Dynamics and Control" which helped me first visual the problem with this chart:
+
+![Theta2 & 3 First Chart][image6]
+
+Now, after spending countless hours following the formulas in that book and it not working, I finally asked some other students
+for help.  They pointed out that that graph isn't exactly right, we have a small crook in our robot's arm after joint 4.
+
+This is the A of -0.053 in the DH parameters.  The other student helped me with the trig and I solved it by doing this:
+
+```
+extraangle = atan2(wz-1.94645, wx)
+wx = wx-0.054*sin(extraangle)
+wz = wz+0.054*cos(extraangle)
+```
+
+So, what this does is move the final wrist point according to that extra angle.  So, that means the new wrist point after this code
+is set up properly like the problem above and the formulas in Spong's text book worked and my theta 1, 2, and 3 when transformed 
+finally pointed to the wrist position at joint 5.
+
+##### The Inverse Orientation Kinematics: Theta 1 2 3
+
+To calculate the remaining three thetas, there is a nice formula that gets you almost the way there.  That formula is:
+
+```
+R3_6 = R0_3.inverse() * R0_6
+```
+
+What this means is the final three sections' rotations are equal to the first three rotations inversed times the entire transform.
+We now know the first rotations because we figured out theta 1,2,3 and we have known R0_6 from the start.  
+
+So, now that we have R3_6 we have to turn it into three euler angles that represent the robot arm's last three angles.
+
+Smarter people than me probably figured out how to analyse this and figure it out.  My first big clue is that there 
+is a function called euler_from_matrix in the tf2 transformation library.  This takes a rotation transform and gives you
+three euler angles based on it.  That is exatly what we want, but there was an issue, there are 24 different types of 
+euler angles that the function can use:
+
+```
+'sxyz', 'sxyx', 'sxzy'
+'sxzx', 'syzx', 'syzy'
+'syxz', 'syxy', 'szxy'
+'szxz', 'szyx', 'szyz'
+'rzyx', 'rxyx', 'ryzx'
+'rxzx', 'rxzy', 'ryzy'
+'rzxy', 'ryxy', 'ryxz'
+'rzxz', 'rxyz', 'rzyz'
+```
+And I didn't know which one to use.
+
+The next issue was the URDF correction.  I was worried that the correction would come into play again and thought, I will need to test
+different combinations to figure it out.  Last time it was a rotation around Z then Y, so I tried the same things again.
+
+So, 24 possiblities of euler_angles and about 12 different rotation patterns.  So what I did is wrote a test script that
+tried all 288 combinations until one that worked.  The first one that worked was:
+
+1. Rotate -pi/2 over Z
+2. Rotate -pi/2 over Y
+3. Use the rzyz pattern
+
+This is one of those things that after you find the answer from brute force the light bulb turns on in your brain.  
+Doing the -pi/2 over Z then the -pi/2 over Y is an exact undoing of the adjustment before, so yes, I needed to
+undo it.  Then zyz makes sense because the theta 4 and 6 are in the same direction which is z after the undoing of the correction.
+
+So, I am able to feed the results from first correcting the final transform (again) and then pulling the euler angles out 
+right into the last three thetas:
+
+```
+R3_6 = R3_6 * R_z.evalf(subs={yawsym:-pi/2})[0:3,0:3] * R_y.evalf(subs={pitchsym:-pi/2})[0:3,0:3]
+first, second, third = tf.transformations.euler_from_matrix(np.array(R3_6).astype(np.float64), "ryzy")
+
+theta4 = first
+theta5 = np.clip(second,-2,2)  #Special note, this little guy likes to cause collisions, but not with this!
+theta6 = third
+```
+One side note, I was having collisions with theta5 running back into the arm, so I clipped it's values.  Probably would have been
+better to do something like adding/removing 2\*pi from the value, but, it got me there.
+
+Someday I hope to solve these rotation issues using Trig, but this week is not that week.
 
 
 ### Project Implementation
